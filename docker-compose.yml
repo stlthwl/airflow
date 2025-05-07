@@ -1,0 +1,65 @@
+version: '3.9'
+
+services:
+  postgres_airflow:
+    image: postgres:latest
+    container_name: postgres_airflow
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${AIRFLOW_USER_NAME}
+      POSTGRES_PASSWORD: ${AIRFLOW_USER_PASSWORD}
+      POSTGRES_DB: airflow_db
+    ports:
+      - "5432:5432"
+    networks:
+      - airflow_network
+
+  airflow:
+    image: apache/airflow:2.7.3
+    container_name: airflow_webserver
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}  # Добавлено
+      AIRFLOW__WEBSERVER__RBAC: 'True'
+    ports:
+      - "8880:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow users create --username ${AIRFLOW_USER_NAME} --firstname Admin --lastname User --role Admin --email admin@example.com --password ${AIRFLOW_USER_PASSWORD} || true &&
+        airflow webserver
+      "
+    depends_on:
+      - postgres_airflow
+    networks:
+      - airflow_network
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.3
+    container_name: airflow_scheduler
+    restart: always
+    depends_on:
+      - airflow
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}  # Добавлено
+    volumes:
+      - ./dags:/opt/airflow/dags
+    command: scheduler
+    networks:
+      - airflow_network
+
+networks:
+  airflow_network:
+    driver: bridge
