@@ -61,7 +61,7 @@ with DAG(
         retries=0,
     )
 
-    check_endpoint_available >> send_telegram_message
+    check_endpoint_available >> test_dag
 
 # from airflow import DAG
 # from airflow.providers.http.operators.http import SimpleHttpOperator
