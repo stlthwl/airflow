@@ -9,9 +9,13 @@ services:
       POSTGRES_PASSWORD: ${AIRFLOW_USER_PASSWORD}
       POSTGRES_DB: airflow_db
     ports:
-      - "5440:5432"
-    networks:
-      - airflow_network
+      - "5440:5432"  # Оставляем проброс порта для доступа с хоста
+    network_mode: host  # Переводим в host-режим
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIRFLOW_USER_NAME} -d airflow_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   airflow:
     image: apache/airflow:2.7.3
@@ -20,12 +24,12 @@ services:
       - .env
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@localhost:5440/airflow_db  # Меняем на localhost
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@localhost:5440/airflow_db
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
       AIRFLOW__WEBSERVER__RBAC: 'True'
       AIRFLOW__WEBSERVER__BASE_URL: http://stlthwl.pro:8880
-      AIRFLOW__LOGGING__LOGGING_LEVEL: 'WARNING'  # Минимальный уровень логирования
+      AIRFLOW__LOGGING__LOGGING_LEVEL: 'WARNING'
     ports:
       - "8880:8080"
     volumes:
@@ -40,9 +44,9 @@ services:
         airflow webserver
       "
     depends_on:
-      - postgres_airflow
-    networks:
-      - airflow_network
+      postgres_airflow:
+        condition: service_healthy
+    network_mode: host  # Включаем host-режим
 
   airflow-scheduler:
     image: apache/airflow:2.7.3
@@ -50,26 +54,96 @@ services:
     restart: always
     depends_on:
       - airflow
-      - postgres_airflow
     env_file:
       - .env
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@localhost:5440/airflow_db
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@localhost:5440/airflow_db
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
       AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC: 5
-      AIRFLOW__LOGGING__LOGGING_LEVEL: 'WARNING'  # Минимальный уровень логирования
+      AIRFLOW__LOGGING__LOGGING_LEVEL: 'WARNING'
     volumes:
       - ./dags:/opt/airflow/dags
       - /etc/ssl/certs:/etc/ssl/certs:ro
     extra_hosts:
       - "mentor-on.ru:90.156.154.231"
     command: scheduler
-    networks:
-      - airflow_network
+    network_mode: host  # Включаем host-режим
 
-networks:
-  airflow_network:
-    driver: bridge
-    enable_ipv6: false
+
+#services:
+#  postgres_airflow:
+#    image: postgres:latest
+#    container_name: postgres_airflow
+#    env_file:
+#      - .env
+#    environment:
+#      POSTGRES_USER: ${AIRFLOW_USER_NAME}
+#      POSTGRES_PASSWORD: ${AIRFLOW_USER_PASSWORD}
+#      POSTGRES_DB: airflow_db
+#    ports:
+#      - "5440:5432"
+#    networks:
+#      - airflow_network
+#
+#  airflow:
+#    image: apache/airflow:2.7.3
+#    container_name: airflow_webserver
+#    env_file:
+#      - .env
+#    environment:
+#      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+#      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
+#      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
+#      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+#      AIRFLOW__WEBSERVER__RBAC: 'True'
+#      AIRFLOW__WEBSERVER__BASE_URL: http://stlthwl.pro:8880
+#      AIRFLOW__LOGGING__LOGGING_LEVEL: 'WARNING'  # Минимальный уровень логирования
+#    ports:
+#      - "8880:8080"
+#    volumes:
+#      - ./dags:/opt/airflow/dags
+#      - /etc/ssl/certs:/etc/ssl/certs:ro
+#    extra_hosts:
+#      - "mentor-on.ru:90.156.154.231"
+#    command: >
+#      bash -c "
+#        airflow db init &&
+#        airflow users create --username ${AIRFLOW_USER_NAME} --firstname Admin --lastname User --role Admin --email admin@example.com --password ${AIRFLOW_USER_PASSWORD} || true &&
+#        airflow webserver
+#      "
+#    depends_on:
+#      - postgres_airflow
+#    networks:
+#      - airflow_network
+#
+#  airflow-scheduler:
+#    image: apache/airflow:2.7.3
+#    container_name: airflow_scheduler
+#    restart: always
+#    depends_on:
+#      - airflow
+#      - postgres_airflow
+#    env_file:
+#      - .env
+#    environment:
+#      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+#      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
+#      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_USER_NAME}:${AIRFLOW_USER_PASSWORD}@postgres_airflow/airflow_db
+#      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+#      AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC: 5
+#      AIRFLOW__LOGGING__LOGGING_LEVEL: 'WARNING'  # Минимальный уровень логирования
+#    volumes:
+#      - ./dags:/opt/airflow/dags
+#      - /etc/ssl/certs:/etc/ssl/certs:ro
+#    extra_hosts:
+#      - "mentor-on.ru:90.156.154.231"
+#    command: scheduler
+#    networks:
+#      - airflow_network
+#
+#networks:
+#  airflow_network:
+#    driver: bridge
+#    enable_ipv6: false
