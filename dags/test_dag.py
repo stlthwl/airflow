@@ -1,59 +1,44 @@
 from airflow import DAG
 from airflow.providers.http.operators.http import SimpleHttpOperator
 from datetime import datetime, timedelta
+import json
 
 default_args = {
     'owner': 'admin',
     'start_date': datetime(2024, 5, 1),
-    'retries': 0,  # Не пытаться перезапускать в этой итерации
-    'retry_delay': timedelta(minutes=0),  # Не ждать перед retry (т.к. retries=0)
-    'max_retry_delay': timedelta(minutes=0),  # Максимальная задержка перед retry
-    'depends_on_past': False,  # Не зависеть от прошлых запусков
-    'catchup': False,  # Не запускать пропущенные интервалы
+    'retries': 0,
+    'retry_delay': timedelta(minutes=0),
+    'max_retry_delay': timedelta(minutes=0),
+    'depends_on_past': False,
+    'catchup': False,
 }
 
 with DAG(
-    'test_http_dag',
+    'test_dag',
     default_args=default_args,
-    schedule_interval='*/15 * * * *',  # Каждые 15 минут (без перезапуска при ошибке)
+    schedule_interval='*/15 * * * *',
     catchup=False,
-    tags=['http'],
+    tags=['http', 'telegram'],
 ) as dag:
 
-    http_task = SimpleHttpOperator(
-        task_id='call_local_api',
-        http_conn_id=None,
-        endpoint='http://host.docker.internal:8000/email',
+    send_telegram_message = SimpleHttpOperator(
+        task_id='send_telegram_message',
+        http_conn_id=None,  # Можно создать HTTP connection в Airflow для этого URL
+        endpoint='https://90.156.154.231:3001/api/v1/sendMessageTelegram',
         method='POST',
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        },
+        data=json.dumps({
+            "userTechId": 1080079179,
+            "textMessage": "test airflow"
+        }),
+        extra_options={
+            "verify": False  # Отключаем проверку SSL (не рекомендуется для production)
+        },
         log_response=True,
-        retries=0,  # Отключаем retry для этой задачи (если DAG retries=0, можно не дублировать)
+        retries=0,
     )
 
-    http_task
-
-# from airflow import DAG
-# from airflow.providers.http.operators.http import SimpleHttpOperator
-# from datetime import datetime, timedelta
-#
-# default_args = {
-#     'owner': 'admin',
-#     'start_date': datetime(2025, 5, 6),
-#     'retries': 1,
-#     'retry_delay': timedelta(minutes=5),
-# }
-#
-# with DAG(
-#     'test_dag',
-#     default_args=default_args,
-#     schedule_interval='*/15 * * * *',
-#     catchup=False,
-#     tags=['api'],
-# ) as dag:
-#     http_task = SimpleHttpOperator(
-#         task_id='http_request',
-#         http_conn_id=None,
-#         endpoint='http://host.docker.internal:8000/test_airflow',  # Полный URL
-#         method='POST',
-#         log_response=True,
-#     )
+    send_telegram_message
