@@ -1,3 +1,17 @@
-venv
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
 .idea
-dags/__pycache__/
+
+# Airflow specific
+airflow.cfg
+airflow.db
+logs/
+*.log
+*.pid
+*.egg-info/
+*.sqlite
+*.pyc
+.pytest_cache/
+.venv/
