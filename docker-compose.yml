@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres_airflow:
     image: postgres:latest
@@ -28,10 +26,6 @@ services:
       AIRFLOW__WEBSERVER__RBAC: 'True'
       AIRFLOW__WEBSERVER__BASE_URL: http://stlthwl.pro:8880
       AIRFLOW__LOGGING__REMOTE_LOGGING: "False"
-      # Удалите прокси, если они не нужны
-      # HTTP_PROXY: ${HTTP_PROXY:-}
-      # HTTPS_PROXY: ${HTTPS_PROXY:-}
-      # NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,stlthwl.pro,89.104.66.70,postgres_airflow}
     ports:
       - "8880:8080"
     volumes:
