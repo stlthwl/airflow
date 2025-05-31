@@ -3,15 +3,3 @@ __pycache__/
 *.py[cod]
 *$py.class
 .idea
-
-# Airflow specific
-airflow.cfg
-airflow.db
-logs/
-*.log
-*.pid
-*.egg-info/
-*.sqlite
-*.pyc
-.pytest_cache/
-.venv/
